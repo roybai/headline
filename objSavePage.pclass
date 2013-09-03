@@ -1,0 +1,648 @@
+<?php
+require_once("functions.php");
+require_once("objDBSQL.pclass");
+require_once("objPage.pclass");
+
+/*
+ *
+ */
+class objSavePage extends objPage
+{
+    public function __construct($fullURL,$userAgent=null)
+    {
+        $this->db=new objDBSQL();
+
+//        parent::__construct();
+        $parsed = parse_url($fullURL);
+        if($parsed['scheme']===null)
+        {
+            $this->error='wrong null';
+            return false;   //must be full url starting with http or https
+        }
+        $this->urlinfo['scheme']=$parsed['scheme'];
+        $this->urlinfo['url']=$fullURL;
+        $this->urlinfo['host'] = $parsed['host'];
+        $this->urlinfo['port'] = $parsed['port'];
+        $this->urlinfo['user'] = $parsed['user'];
+        $this->urlinfo['pass'] = $parsed['pass'];
+        $this->urlinfo['path'] = $parsed['path'];
+        $this->urlinfo['query'] = $parsed['query'];
+        $this->urlinfo['fragment'] = $parsed['fragment'];
+
+        $this->table['page']=0;
+        $this->table['link']=1;
+        $this->table['text']=2;
+        $this->table['image']=3;
+        $this->table['css']=4;
+        $this->table['txt']=5;
+        $this->table['video']=6;
+        $this->table['resource']=7;
+        $this->table['version']=8;
+
+        $this->userAgent=$userAgent;
+
+        $this->currentURL=null;
+        $this->currentPathLevel=0;
+        $this->site_id=0;
+        $this->site_allow_dir=array();
+        $this->get_site_info();
+
+        $this->versionid=0;
+
+
+        $this->imageToBeSaved=0;
+        $this->imageSavedCount=0;
+        $this->imageExistCount=0;
+        $this->pageToBeSaved=0;
+        $this->pageSavedCount=0;
+        $this->pageExistCount=0;
+        $this->cssToBeSaved=0;
+
+
+        _echo('retrieving main page...'.$this->urlinfo['url']);
+        $this->pagebuffer=file_get_contents_curl($this->urlinfo['url']);
+        if($this->pagebuffer===null) return false;
+        $this->pageBufferSize=strlen($this->pagebuffer);
+
+        _echo('parsing links...');
+        $this->alllinks=parse_links_from_html($this->pagebuffer);
+        $this->pageToBeSaved=sizeof($this->alllinks);
+       _echo(sizeof($this->alllinks).' links');
+
+        $this->alllinks=$this->filter_local_links();
+        _echo('retrieving robots.txt...');
+        $this->robotsTxt=$this->get_robotsTxt();
+        _echo('robot rules: '.sizeof($this->robotsTxt));
+
+        _echo('parsing allow links...');
+        $this->allowlinks=$this->parse_allow_link_from_alllink();
+        _echo(sizeof($this->allowlinks).' links');
+
+        $this->disallowlinks=$this->parse_disallow_link_from_alllink();
+        _echo(sizeof($this->disallowlinks).' links');
+        $this->csslinks=parse_csslink_from_html($this->pagebuffer);
+        $this->cssToBeSaved=sizeof($this->csslinks);
+//        _echo(sizeof($this->csslinks).' links');
+
+        _echo('parsing image links...');
+        $this->imagelinks=parse_image_from_html($this->pagebuffer);
+        $this->imageToBeSaved=sizeof($this->imagelinks);
+//        _echo(sizeof($this->imagelinks).' links');
+
+        _echo('parsing title links...');
+        $this->txtTitle=parse_txtTitle_from_html($this->pagebuffer);
+
+        _echo('parsing txt...');
+        $this->txtLink=parse_txtLink_from_html($this->pagebuffer);
+
+        _echo('parsing text body...');
+        $this->txtBody=parse_txtBody_from_html($this->pagebuffer);
+
+        _echo('loading image url hash...');
+        $this->ImageURLHashTable = $this->LoadImageURLHash();
+        _echo(sizeof($this->ImageURLHashTable).' ImageURLHashTable');
+
+        _echo('loading image body hash...');
+        $this->ImageBodyHashTable = $this->LoadImageBodyHash();
+        _echo(sizeof($this->ImageBodyHashTable).' ImageBodyHashTable');
+
+        _echo('loading page url hash...');
+        $this->PageLinkHashTable = $this->LoadPageURLHash();
+        _echo(sizeof($this->PageLinkHashTable).' PageLinkHashTable');
+
+        _echo('construction done');
+        return true;
+    }
+
+    private function filter_local_links()
+    {
+        $ret=array();
+        foreach($this->alllinks as $link)
+        {
+            $parsed=parse_url($link);
+            if(isset($parsed['host']) && $parsed['host']!=$this->urlinfo['host'] && !in_array($parsed['host'],$this->site_allow_dir))
+                continue;
+            if(in_array($link,$ret))
+                continue;
+            $ret[]=$link;
+        }
+        return $ret;
+    }
+    private function get_site_info()
+    {
+        $data['SITE_HOST_NAME']=$this->urlinfo['host'];
+        $data['SITE_CREATE_DATE_TIME']='NOW()';
+        $table='SITE';
+
+        $this->db->statement="SELECT SITE_ID,SITE_ALLOW_DIR FROM SITE WHERE SITE_HOST_NAME=\"{$this->urlinfo['host']}\"";
+        $this->db->execute();
+        $result=$this->db->next();
+
+        if($result===false)
+        {
+            $this->site_id=$this->db->insert_to_table($table,$data);
+            $this->db->statement="UPDATE SITE SET SITE_CREATE_DATE_TIME=NOW() WHERE SITE_ID=\"{$this->site_id}\"";
+            $this->db->execute();
+        }
+        else
+        {
+            $this->site_id=$result['SITE_ID'];
+            if($result['SITE_ALLOW_DIR']!=null)
+            {
+                $this->site_allow_dir=explode(",",$result['SITE_ALLOW_DIR']);
+            }
+        }
+        return;
+
+    }
+
+    private function save_resource(objDBSQL $db,$type)
+    {
+        $data['RESOURCE_VERSION_ID']=$this->versionid;
+        $data['RESOURCE_TYPE']=$this->table[$type];
+        $table='RESOURCE';
+        return $db->insert_to_table($table,$data);
+
+    }
+
+    private function save_css(objDBSQL $db)
+    {
+        if(!$this->csslinks) return;
+        foreach($this->csslinks as $link)
+        {
+            $full_url=$this->get_full_url($link);
+            $buffer=@file_get_contents_curl($full_url);
+
+            /* save resource and get resource_id */
+            $resource_id=$this->save_resource($db,'css');
+            $data['CSSLINK_RESOURCE_ID']=$resource_id;
+            $data['CSS_URL']=$link;
+            $data['CSS_BODY']=$buffer;
+            $table='CSSLINK';
+            $db->insert_to_table($table,$data);
+        }
+    }
+
+    private function save_txt(objDBSQL $db)
+    {
+        $txt=array();
+        foreach($this->txtTitle as $link)
+            $txt[]=$link;
+        foreach($this->txtLink as $link)
+            $txt[]=$link;
+        $txt=implode(',',$txt);
+
+        $resource_id=$this->save_resource($db,'css');
+        $data['TXT_RESOURCE_ID']=$resource_id;
+        $data['TXT_TXT']=$txt;
+        $table='TXT';
+        $db->insert_to_table($table,$data);
+    }
+
+    private function save_text(objDBSQL $db)
+    {
+
+        $resource_id=$this->save_resource($db,'css');
+        $data['TEXT_RESOURCE_ID']=$resource_id;
+        $data['TEXT_TEXT']=$this->txtBody;
+        $table='TEXT';
+        $db->insert_to_table($table,$data);
+    }
+
+    private function save_image(objDBSQL $db)
+    {
+        foreach($this->imagelinks as $link)
+            $this->save_a_image($db,$link);
+    }
+    function check_page_url_hash($hash)
+    {
+        return in_array($hash,$this->PageLinkHashTable);
+    }
+
+    private function get_imagehash_from_urlhash($urlHash)
+    {
+        foreach($this->ImageURLHashTable as $url_hash=>$body_hash)
+        {
+            if($urlHash==$url_hash)
+                return $body_hash;
+        }
+        return null;
+    }
+    private function get_imageid_from_imagehash($imageHash)
+    {
+        foreach($this->ImageBodyHashTable as $id=>$hash)
+        {
+            if($imageHash==$hash)
+                return $id;
+        }
+        return null;
+    }
+    /*
+    //1. get image_hash
+    //2. save resource,url,image_hash to imagelink.
+    //3. check url_hash from imagelink to find if url exists
+    //      if url exist, done
+    //      if url not exist, check image_hash to find if image exist
+    //          if image exist, done
+    //          if image not exist,
+                    save imageurlhash
+                    save image and get id
+                    save imageindex
+    */
+    private function save_a_image(objDBSQL $db,$link)
+    {
+        //get url hash to look for duplicated url
+        //if founded, get saved image_hash
+        $full_url=$this->get_full_url($link);
+        $url_hash=get_hash($full_url);
+
+        $image_buffer=null;
+        $has_url=false;
+
+        $image_hash=$this->get_imagehash_from_urlhash($url_hash);
+        //url exist ? if yes, get image_hash
+        if($image_hash===null)
+        {
+            $image_buffer=@file_get_contents_curl($full_url);
+            $image_hash=get_hash($image_buffer);
+        }
+        else
+        {
+            _echo('found url '.$link);
+            $has_url=true;
+        }
+        /* save resource and get resource_id */
+        $resource_id=$this->save_resource($db,'image');
+        $data['IMAGELINK_RESOURCE_ID']=$resource_id;
+        $data['IMAGELINK_IMAGE_HASH']=$image_hash;
+        $data['IMAGELINK_URL']=$link;
+        $table='IMAGELINK';
+        $db->insert_to_table($table,$data);
+
+        // if already has url_hash, done here, return true;
+        if($has_url)
+        {
+            return true;
+        }
+
+        // save new url to URLhash
+        unset($data);
+        $data['IMAGEURLHASH_URL_HASH']=$url_hash;
+        $data['IMAGEURLHASH_IMAGE_HASH']=$image_hash;
+        $table='IMAGEURLHASH';
+        _echo('saving new image hash '.$link);
+        $db->insert_to_table($table,$data);
+
+        // already has image?
+        $has_image = $this->get_imageid_from_imagehash($image_hash);
+        // if has image,done here, return;
+        if($has_image)
+        {
+            _echo('found image in db '.$link);
+            return true;
+        }
+
+
+        /* save actual image body, get auto-incremented image_id */
+        unset($data);
+        $data['IMAGE_BODY']=$image_buffer;
+        $table='IMAGE';
+        $image_id=$db->insert_to_table($table,$data);
+
+        /* save hash and auto-incremented IMAGE_ID to IMAGEINDEX */
+        unset($data);
+        $data['IMAGEINDEX_IMAGE_HASH']=$image_hash;
+        $data['IMAGEINDEX_IMAGE_ID']=$image_id;
+        $table='IMAGEINDEX';
+        _echo('saving new image body '.$link);
+        $db->insert_to_table($table,$data);
+        $this->imageSavedCount++;
+        return true;
+    }
+
+    private function save_link(objDBSQL $db)
+    {
+        foreach($this->alllinks as $url)
+        {
+            _echo('saving link '.$url);
+            /* save resource and get resource_id */
+            $resource_id=$this->save_resource($db,'link');
+            $data['ALINK_RESOURCE_ID']=$resource_id;
+            $data['ALINK_URL']=$url;
+            $table='ALINK';
+            $db->insert_to_table($table,$data);
+        }
+    }
+
+    private function save_page (objDBSQL $db)
+    {
+        /* save resource and get resource_id */
+        $resource_id=$this->save_resource($db,'page');
+
+        /* save resource id and hash(page_id) to PAGELINK) */
+        unset($data);
+        $hash=get_hash($this->pagebuffer);
+        $data['PAGELINK_RESOURCE_ID']=$resource_id;
+        $data['PAGELINK_HASH']=$hash;
+        $table='PAGELINK';
+        $db->insert_to_table($table,$data);
+
+//        if($db->get_page_id_from_pagehash($hash))   //found page
+        if($this->check_page_url_hash($hash))   //found page, page not changed
+        {
+            _echo('page hash found, not changed');
+            return true;
+        }
+        /* save actual PAGE body, get auto-incremented PAGE_ID */
+        unset($data);
+        $data['PAGE_BODY']=$this->pagebuffer;
+        $table='PAGE';
+        $page_id=$db->insert_to_table($table,$data);
+
+        /* save hash and auto-incremented PAGE_ID to PAGEINDEX */
+        unset($data);
+        $data['PAGEINDEX_HASH']=$hash;
+        $data['PAGEINDEX_PAGE_ID']=$page_id;
+        $table='PAGEINDEX';
+        $db->insert_to_table($table,$data);
+        $this->pageSavedCount++;
+        return true;
+    }
+
+
+    /*save data into data
+    page
+    links
+    images
+    css
+    txt
+    text
+    */
+    public function save ($tag=null)
+    {
+        $db=$this->db;
+
+        if($db===false) return false;
+
+        if($this->versionid===0)
+            $this->versionid=$db->save_version($this->site_id);
+        _echo('saving page');
+        $this->save_page($db);
+        _echo('saving image');
+
+        $this->save_image($db);
+        _echo('saving link');
+        $this->save_link($db);
+        _echo('saving css');
+        $this->save_css($db);
+        _echo('saving txt');
+        $this->save_txt($db);
+        _echo('saving text');
+        $this->save_text($db);
+        _echo ("Newly saved image: ".$this->imageSavedCount);
+        _echo ("<br>Newly saved page: ".$this->pageSavedCount);
+
+        if($tag==true)
+        {
+            foreach($this->alllinks as $link)
+            {
+   //         foreach(
+                $parsed = parse_url($link);
+                if(!$parsed['scheme']) //need to make full path
+                {
+                    $link=$this->urlinfo['url'].$link;
+                }
+                if($parsed['scheme']!='http' && $parsed['scheme']!='https' && $parsed['scheme'])
+                    continue;
+
+                echo 'saving sub page: '.$link;
+                echo("<br>");
+
+                    $this->saveSubPage($link);
+  //              $subPage=new objSavePage("http://www.wenxuecity.com");
+ //           $links=$subPage->save(false);
+            }
+
+        }
+
+        return $this->allowlinks;
+        //return true;
+    }
+
+    private function saveSubPage($link)
+    {
+        $subPage=new objSavePage($link);
+        $links=$subPage->save(false);
+    }
+    //if url belong to same site, return true, else return false;
+    public function is_this_site($url)
+    {
+        $parsed = parse_url($url);
+        if($parsed['host']===NULL)
+            return true;
+        if($parsed['host']===$this->urlinfo['host'])
+            return true;
+        return false;
+    }
+
+    private function parse_allow_link_from_alllink()
+    {
+        $ret=array();
+        foreach($this->alllinks as $link)
+        {
+            if($this->robots_allowed($link))
+                $ret[]=$link;
+        }
+        return $ret;
+    }
+
+    private function parse_disallow_link_from_alllink()
+    {
+        $ret=array();
+        foreach($this->alllinks as $link)
+        {
+            if(!$this->robots_allowed($link))
+                $ret[]=$link;
+        }
+        return $ret;
+    }
+    // check if url is allowed by robots.txt
+    private function robots_allowed($url)
+    {
+        //if no robots.txt return true;
+        if($this->robotsTxt=== false) return true;
+
+        $parsed = parse_url($url);
+
+        if(!isset($parsed['path']))
+        {
+            return true;
+        }
+        $rules = array();
+        $ruleApplies = false;
+
+        foreach($this->robotsTxt as $line)
+        {
+            // skip blank lines
+            if(!$line = trim($line)) continue;
+
+            // following rules only apply if User-agent matches $useragent or '*'
+            if(preg_match('/^\s*User-agent: (.*)/i', $line, $match))
+            {
+                $ruleApplies = preg_match("/($this->userAgent)/i", $match[1]);
+                continue;
+            }
+
+            if($ruleApplies)
+            {
+                list($type, $rule) = explode(':', $line, 2);
+                $type = trim(strtolower($type));
+                // add rules that apply to array for testing
+                $rules[] = array(
+                    'type' => $type,
+                    'match' => preg_quote(trim($rule), '/'),
+                );
+            }
+        }
+
+        $isAllowed = true;
+        $currentStrength = 0;
+        foreach($rules as $rule)
+        {
+            // check if page hits on a rule
+            if(preg_match("/^{$rule['match']}/", $parsed['path']))
+            {
+                // prefer longer (more specific) rules and Allow trumps Disallow if rules same length
+                $strength = strlen($rule['match']);
+                if($currentStrength < $strength)
+                {
+                    $currentStrength = $strength;
+                    $isAllowed = ($rule['type'] == 'allow') ? true : false;
+                }
+                elseif($currentStrength == $strength && $rule['type'] == 'allow')
+                {
+                    $currentStrength = $strength;
+                    $isAllowed = true;
+                }
+            }
+        }
+
+        return $isAllowed;
+    }
+
+    //get robots.txt and save to $this->robotstxt
+    private function get_robotsTxt()
+    {
+//        $buffer=file_get_contents_curl("http://{$this->urlinfo['host']}/robots.txt");
+        $buffer=file("http://{$this->urlinfo['host']}/robots.txt");
+//        return explode('\n',$buffer);
+        return $buffer;
+
+    }
+
+    public function get_full_url($url)
+    {
+        $r=parse_url($url);
+        if(isset($r['host'])===false)
+            $url="http://".$this->urlinfo['host'].$url;
+        return $url;
+    }
+
+
+
+    //based on image URL hash, load image Body hash into a array
+    //then find out if a image body hash is saved or not
+    function LoadImageURLHash()
+    {
+        $imageLinkHash=array();
+        foreach($this->imagelinks as $link)
+            $imageLinkHash[]=get_hash($this->get_full_url($link));
+
+        $condition=makeSQLCondition($imageLinkHash);
+
+        $this->db->statement="
+        SELECT *
+        FROM IMAGEURLHASH
+        WHERE IMAGEURLHASH_URL_HASH IN ($condition)";
+
+        $this->db->execute();
+        $ret=array();
+        while($r=$this->db->next())
+        {
+            $urlHash=$r['IMAGEURLHASH_URL_HASH'];
+            $imageHash=$r['IMAGEURLHASH_IMAGE_HASH'];
+            $ret[$urlHash]=$imageHash;
+        }
+        return $ret;
+    }
+
+
+    //based on image URL, load image body hash into a array
+    //then find out if a image URL hash is saved or not
+    function LoadImageBodyHash()
+    {
+        $condition=makeSQLCondition($this->ImageURLHashTable);
+
+        $this->db->statement="
+        SELECT *
+        FROM IMAGEINDEX
+        WHERE IMAGEINDEX_IMAGE_HASH IN ($condition)";
+
+        $this->db->execute();
+        $ret=array();
+        while($r=$this->db->next())
+        {
+            $id=$r['IMAGEINDEX_IMAGE_ID'];
+            $imageHash=$r['IMAGEINDEX_IMAGE_HASH'];
+            $ret[$id]=$imageHash;
+        }
+        return $ret;
+    }
+
+    //based on image URL hash, load image Body hash into a array
+    //then find out if a image body hash is saved or not
+    function LoadPageURLHash()
+    {
+        $allLinkHash=array();
+        foreach($this->alllinks as $link)
+            $allLinkHash[]=get_hash($this->get_full_url($link));
+
+        $condition=makeSQLCondition($allLinkHash);
+
+        $this->db->statement="
+        SELECT *
+        FROM PAGELINK
+        WHERE PAGELINK_HASH IN ($condition)";
+
+        $this->db->execute();
+        $ret=array();
+        while($r=$this->db->next())
+        {
+            $ret[]=$r['PAGELINK_HASH'];
+        }
+        return $ret;
+    }
+
+    //based on image URL, load image body hash into a array
+    //then find out if a image URL hash is saved or not
+    function LoadPageBodyHash()
+    {
+        $condition=makeSQLCondition($this->ImageURLHashTable);
+
+        $this->db->statement="
+        SELECT *
+        FROM IMAGEINDEX
+        WHERE IMAGEINDEX_IMAGE_HASH IN ($condition)";
+
+        $this->db->execute();
+        $ret=array();
+        while($r=$this->db->next())
+        {
+            $id=$r['IMAGEINDEX_IMAGE_ID'];
+            $imageHash=$r['IMAGEINDEX_IMAGE_HASH'];
+            $ret[$id]=$imageHash;
+        }
+        return $ret;
+    }
+}
+
