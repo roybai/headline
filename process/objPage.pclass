@@ -1,0 +1,43 @@
+<?php
+require_once("objDBSQL.pclass");
+require_once("functions.php");
+class objPage
+{
+    function __construct($version=null)
+    {
+        $this->Page_version=$version;
+
+        $this->linkPattern=null;
+        $this->imagePattern=null;
+        $this->cssPattern=null;
+
+        /*
+        $this->Page_imageBodyHash=null;
+
+        $this->Page_UrlBuffer=null;
+        $this->Page_UrlBufferPointer=null;
+
+        $this->Page_ImageLinkBuffer=null;
+        $this->Page_ImageLinkBufferPointer=null;
+
+        $this->Page_ImageBodyBuffer=null;
+        $this->Page_ImageBodyBufferPointer=null;
+
+        $this->Page_UrlHashBuffer=null;
+        $this->Page_UrlHashBufferPointer=null;
+
+        $this->Page_ImageLinkHashBuffer=null;
+        $this->Page_ImageLinkHashBufferPointer=null;
+
+        $this->Page_ImageBodyHashBuffer=null;
+        $this->Page_ImageBodyHashBufferPointer=null;
+        */
+        $this->pageImageURLHashTable=null;
+        $this->pageImageBodyHashTable=null;
+        $this->pageLINKURLHashTable=null;
+        $this->pagePageBodyHashTable=null;
+        $this->pagePageURLHashTable=null;
+
+    }
+
+}

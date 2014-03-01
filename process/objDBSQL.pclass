@@ -1,0 +1,196 @@
+<?php
+class objDBSQL
+{
+    public function __construct()
+    {
+//        $this->db=mysql_connect('roydb.cxvtoav7sscf.us-east-1.rds.amazonaws.com:3306','root','amegul3');
+        $this->db=mysql_connect('10.1.1.2:3306','root','brybios');
+        if(!$this->db) {echo 'database failed';exit;}
+        mysql_select_db('test');
+
+        $this->statement=null;
+        $this->table['page']=0;
+        $this->table['link']=1;
+        $this->table['text']=2;
+        $this->table['image']=3;
+        $this->table['css']=4;
+        $this->table['txt']=5;
+        $this->table['video']=6;
+        $this->table['resource']=7;
+        $this->table['version']=8;
+
+        $this->result=null;
+        return true;
+    }
+    public function __destruct()
+    {
+//        mysql_close($this->db->connection);
+    }
+    public function clear_tables()
+    {
+        mysql_query("TRUNCATE TABLE ALINK");
+        mysql_query("TRUNCATE TABLE CSSLINK");
+        mysql_query("TRUNCATE TABLE IMAGE");
+        mysql_query("TRUNCATE TABLE IMAGEINDEX");
+        mysql_query("TRUNCATE TABLE IMAGELINK");
+        mysql_query("TRUNCATE TABLE IMAGEURLHASH");
+        mysql_query("TRUNCATE TABLE IMAGE");
+        mysql_query("TRUNCATE TABLE PAGE");
+        mysql_query("TRUNCATE TABLE PAGEINDEX");
+        mysql_query("TRUNCATE TABLE PAGELINK");
+        mysql_query("TRUNCATE TABLE RESOURCE");
+        mysql_query("TRUNCATE TABLE TEXT");
+        mysql_query("TRUNCATE TABLE TXT");
+        mysql_query("TRUNCATE TABLE VERSION");
+    }
+    public function save_website()
+    {
+
+    }
+
+    public function insert_site($full_url)
+    {
+        $a=parse_url($full_url);
+        if($a['host']===null) return false;
+        $host=$a['host'];
+
+/*
+        $this->statement="insert into SITE SET SITE_HOST_NAME='$host', SITE_CREATE_DATE_TIME=NOW(), SITE_LAST_UPDATE_DATE_TIME=NOW()";
+        if(mysql_query($this->statement)===false)
+            return false;
+        return $this->last_insert_id();
+*/
+        $table='SITE';
+        $date['SITE_HOST_NAME']=$host;
+        $date['SITE_CREATE_DATE_TIME']='NOW()';
+        $date['SITE_LAST_UPDATE_DATE_TIME']='NOW()';
+        return $this->insert_to_table($table,$date);
+    }
+
+    //return last insert id;
+    public function execute ()
+    {
+        $this->result=mysql_query($this->statement);
+        if($this->result===false) return false;
+        return true;
+    }
+
+    public function next ()
+    {
+        if($this->result==null) return null;
+        return mysql_fetch_array($this->result);
+    }
+
+    public function last_insert_id()
+    {
+        $r=mysql_query("select last_insert_id()");
+        $n=mysql_fetch_row($r);
+        return $n[0];
+    }
+
+    // load resource from table to array
+    public function load_resource($version,$type)
+    {
+        if($this->table[$type]===null) return false;
+
+        $table=strtoupper($type);
+        $field1=$table."_RESOURCE_ID";
+        $field2=$table."_".$table;
+
+        $statement="
+        SELECT $field1,$field2 FROM $table
+        JOIN RESOURCE ON $field1=RESOURCE_ID
+        WHERE RESOURCE_VERSION_ID=$version"; //AND RESOURCE_TYPE={$this->table[$type]}
+
+        $n=mysql_query($statement);
+        if($n===false) return false;
+        $resource=array();
+        while($r=mysql_fetch_row($n))
+        {
+            $resource[]=$r;
+        }
+
+        return $resource;
+    }
+
+/*
+    public function get_imagehash_from_urlhash($urlhash)
+    {
+        $this->statement="SELECT IMAGEURLHASH_IMAGE_HASH FROM IMAGEURLHASH WHERE IMAGEURLHASH_URL_HASH=\"$urlhash\"";
+        $this->execute();
+        $r=$this->next();
+        return $r[0];
+
+    }
+
+    public function get_imageid_from_imagehash($imagehash)
+    {
+        $this->statement="SELECT IMAGEINDEX_IMAGE_ID FROM IMAGEINDEX WHERE IMAGEINDEX_IMAGE_HASH=\"$imagehash\"";
+        $this->execute();
+        $r=$this->next();
+        return $r[0];
+    }
+*/
+    public function get_page_id_from_pagehash($hash)
+    {
+        $this->statement="SELECT PAGEINDEX_PAGE_ID FROM PAGEINDEX WHERE PAGEINDEX_HASH=\"$hash\"";
+        $this->execute();
+        $r=$this->next();
+        return $r[0];
+    }
+
+
+    public function insert_to_table($table,$data)
+    {
+        $p1=null;
+        $p2=null;
+        foreach($data as $key=>$value)
+        {
+            $key=addslashes($key);
+            $value=addslashes($value);
+            if($p1==null)
+                $p1="$key";
+            else $p1=$p1.",$key";
+            if($p2==null)
+                $p2="\"$value\"";
+            else $p2=$p2.",\"$value\"";
+        }
+        if($p1==null || $p2==null) return false;
+
+        $this->statement=("insert ignore into $table ($p1) values ($p2)");
+        if(mysql_query($this->statement)===false) return false;
+        return $this->last_insert_id();
+    }
+
+    public function save_version($site_id)
+    {
+        $this->statement="insert into `VERSION` (VERSION_SITE_ID,VERSION_DATE_TIME) values ('$site_id',now())";
+        if(mysql_query($this->statement)===false) return false;
+        return $this->last_insert_id();
+    }
+    public function get_version_by_time($start_time,$end_time,$start_row=null,$limit=null,$site_id=null)
+    {
+        $condition_site=null;
+        $condition_limit=null;
+        if($site_id)
+            $condition_site='WHERE VERSION_SITE_ID = $site_id ';
+        if($start_row)
+            $condition_limit='LIMIT $start_row, $limit';
+
+        $this->statement="
+        SELECT * FROM VERSION
+        WHERE
+        VERSION_DATE_TIME>='$start_time' and
+        VERSION_DATE_TIME<='$end_time'
+        " . $condition_site . $condition_limit;
+
+        $this->execute();
+        $ret=array();
+        while($r=$this->next())
+        {
+            $ret[]=$r;
+        }
+        return $ret;
+    }
+}
+
