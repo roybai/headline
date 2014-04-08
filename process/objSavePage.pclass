@@ -413,7 +413,7 @@ class objSavePage extends objPage
                 if(!$parsed['scheme']) //need to make full path
                 {
                     preg_match_all('/\S{0,1}/' , $link, $matches);
-                    if($match[0] == "/")
+                    if($matches[0] == "/")
                         $link = $this->urlinfo['url'].$link;
                     else $link = $this->urlinfo['url']."/".$link;
                 }
@@ -548,6 +548,7 @@ class objSavePage extends objPage
 
     public function get_full_url($url)
     {
+
         $r=parse_url($url);
         if(isset($r['host'])===false)
             $url="http://".$this->urlinfo['host'].$url;

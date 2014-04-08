@@ -102,7 +102,7 @@ function get_file_time($full_url,$timeout=600)
     }
 function saveMyFile($filename,$buffer)
 {
-    $filename="/tmp/".$filename;
+//    $filename="/tmp/".$filename;
     $fp=fopen($filename,"w");
     if(!$fp) return false;
     fwrite($fp,$buffer,strlen($buffer));
@@ -111,6 +111,7 @@ function saveMyFile($filename,$buffer)
 }
 function _echo($str)
 {
+    return;
     ob_start();
     echo date("i:s: ").$str."<br>";
     ob_flush();
@@ -120,7 +121,7 @@ function update_css_links_by_resourceid($buffer,$links)
     $pieces=array();
     foreach($links as $id=>$value)
     {
-       $newLink='/x/parser/css/'.$id;
+       $newLink='/headline/css/'.$id;
        $buffer=str_replace($value[0],$newLink,$buffer);
     }
 
@@ -145,7 +146,7 @@ function update_image_links_by_resourceid($buffer,$allLinksFromDB)
         {
             if($value[0]===$matches[2][$k])
             {
-                $new=$l[0]."src=\"/x/parser/image/{$key}\"".$l[1];
+                $new=$l[0]."src=\"/headline/image/{$key}\"".$l[1];
                 $ret.=$pieces[$k].$new;
                 break;
             }

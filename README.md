@@ -80,3 +80,40 @@ CREATE TABLE `VERSION` (
   `VERSION_DATE_TIME` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
   PRIMARY KEY (`VERSION_ID`)
 ) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=latin1;
+
+读取顺序：
+1.读取所有resource getAllResourcesFromVersion
+2.读取主页 getPageBodyFromVersion()
+3. 读取所有link getAllLinksFromVersion()
+4.读取所有图像link  getAllImageLinksFromVersion()
+5.读取所有css link getAllCssLinksFromVersion()
+
+ 显示page:
+1.update_image_links_by_resourceid
+2.loadImageToDisk
+3.update_css_links_by_resourceid
+4.loadCssToDisk
+5.update_page_links_by_resourceid
+
+
+
+保存顺序：
+1. 获取主页 file_get_contents_curl
+2. 分析link, parse_links_from_html
+3. 分析 robot.txt
+4. 基于robot.txt, 分析allow link. parse_allow_link_from_alllink
+5. 基于robot.txt, 分析disallow link. parse_disallow_link_from_alllink
+6. 分析图像link
+7. 分析 title 文本 parse_txtTitle_from_html
+8. 分析普通文本 parse_txtBody_from_html
+9. 读取图像url hash 表 LoadImageURLHash
+10. 读取图像hash 表 LoadImageBodyHash
+11. 读取主页 url hash表LoadPageURLHash
+保存
+1.保存version
+2.保存主页
+3.保存图像
+4.保存link
+5.保存css
+6.保存title文本
+7.保存普通文本

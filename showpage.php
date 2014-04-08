@@ -2,6 +2,7 @@
 
 
 require_once("objLoadPage.pclass");
-
-$lp = new objLoadPage(1);
-echo $lp->loadPage(0);
+$siteID = $_GET['sid'];
+$versionID = $_GET['vid'];
+$lp = new objLoadPage(3);
+echo $lp->loadPage(3);
