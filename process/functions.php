@@ -100,6 +100,44 @@ function get_file_time($full_url,$timeout=600)
 
         return $ret;
     }
+
+    function update_page_links_by_full_url($buffer,$allLinksFromDB,$hostname)
+    {
+        $regexp = "<a\s[^>]*href=(\"??)([^\" >]*?)\\1[^>]*>(.*)<\/a>";
+
+        $regexp1= "href=(\"??)([^\" >]*?\\1)";
+
+        preg_match_all("/$regexp/siU", $buffer, $matches);
+        $pieces=preg_split("/$regexp/siU",$buffer);
+
+        $ret=null;
+
+        foreach($matches[0] as $k=>$link)
+        {
+            $l=preg_split("/$regexp1/siU",$link);
+            $found=0;
+            foreach($allLinksFromDB as $key=>$value)
+            {
+                if($value===$matches[2][$k])
+                {
+
+                    $new=$l[0]."href=\"".get_full_url($value,$hostname)."\"".$l[1];
+                    $ret.=$pieces[$k].$new;
+                    $found=1;
+                    break;
+                }
+            }
+            if($found==0)
+            {
+                $ret.=$pieces[$k].$matches[0][$k];
+                $found=0;
+            }
+        }
+        $ret.=$pieces[sizeof($pieces)-1];
+
+        return $ret;
+    }
+
 function saveMyFile($filename,$buffer)
 {
 //    $filename="/tmp/".$filename;
@@ -368,3 +406,15 @@ function getTableFromType ($type)
     }
     return NULL;
 }
+
+
+    function get_full_url ($url,$host)
+    {
+
+        $url=trim($url);
+        if($url[0] != "/" && !strstr(strtolower($url), "http://") && !strstr(strtolower($url), "https://")) $url="/".$url;
+        $r=parse_url($url);
+        if(isset($r['host'])===false)
+            $url="http://".$host.$url;
+        return $url;
+    }

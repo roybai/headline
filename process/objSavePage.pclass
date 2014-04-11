@@ -59,11 +59,11 @@ class objSavePage extends objPage
         $this->pageSavedCount=0;
         $this->pageExistCount=0;
         $this->cssToBeSaved=0;
-
+        $this->parent_page_resource_id=0;
 
         _echo('retrieving main page...'.$this->urlinfo['url']);
         $this->pagebuffer=file_get_contents_curl($this->urlinfo['url']);
-        if($this->pagebuffer===null) return false;
+        if($this->pagebuffer==null) return false;
         $this->pageBufferSize=strlen($this->pagebuffer);
 
         _echo('parsing links...');
@@ -162,6 +162,8 @@ class objSavePage extends objPage
     {
         $data['RESOURCE_VERSION_ID']=$this->versionid;
         $data['RESOURCE_TYPE']=$type;
+        $data['RESOURCE_PARENT_PAGE_ID']=$this->parent_page_resource_id;
+
         $table='RESOURCE';
         return $db->insert_to_table($table,$data);
 
@@ -169,12 +171,22 @@ class objSavePage extends objPage
 
     private function save_css(objDBSQL $db)
     {
+        global $g_Link;
+
         if(!$this->csslinks) return;
         foreach($this->csslinks as $link)
         {
             $full_url=$this->get_full_url($link);
-            $buffer=@file_get_contents_curl($full_url);
 
+            if(in_array($full_url , $g_Link)) return;
+            $g_Link[] = $full_url;
+
+            $buffer=@file_get_contents_curl($full_url);
+            if(!$buffer)
+            {
+                echo "got nothing in css " . $full_url."  <br>";
+                return;
+            }
             /* save resource and get resource_id */
             $resource_id=$this->save_resource($db,_CSS_TYPE_RESOURCE);
             $data['CSSLINK_RESOURCE_ID']=$resource_id;
@@ -253,9 +265,15 @@ class objSavePage extends objPage
     */
     private function save_a_image(objDBSQL $db,$link)
     {
+        global $g_Link;
+
         //get url hash to look for duplicated url
         //if founded, get saved image_hash
         $full_url=$this->get_full_url($link);
+
+        if(in_array($full_url , $g_Link)) return false;
+        $g_Link[] = $full_url;
+
         $url_hash=get_hash($full_url);
 
         $image_buffer=null;
@@ -266,11 +284,16 @@ class objSavePage extends objPage
         if($image_hash===null)
         {
             $image_buffer=@file_get_contents_curl($full_url);
+            if(!$image_buffer)
+            {
+                echo "got nothing in image " . $full_url."  <br>";
+                return false;
+            }
             $image_hash=get_hash($image_buffer);
         }
         else
         {
-            _echo('found url '.$link);
+            _echo('found image url '.$link);
             $has_url=true;
         }
         /* save resource and get resource_id */
@@ -321,6 +344,17 @@ class objSavePage extends objPage
         $this->imageSavedCount++;
         return true;
     }
+    private function save_alink($db, $url)
+    {
+            _echo('saving link '.$url);
+            /* save resource and get resource_id */
+            $resource_id=$this->save_resource($db,_LINK_TYPE_RESOURCE);
+            $data['ALINK_RESOURCE_ID']=$resource_id;
+            $data['ALINK_URL']=$url;
+            $data['ALINK_PAGE_RESOURCE_ID']=$this->parent_page_resource_id;
+            $table='ALINK';
+            $db->insert_to_table($table,$data);
+    }
 
     private function save_link(objDBSQL $db)
     {
@@ -345,7 +379,7 @@ class objSavePage extends objPage
         unset($data);
         $hash=get_hash($this->pagebuffer);
         $data['PAGELINK_RESOURCE_ID']=$resource_id;
-        $data['PAGELINK_HASH']=$hash;
+        $data['PAGELINK_PAGE_HASH']=$hash;
         $table='PAGELINK';
         $db->insert_to_table($table,$data);
 
@@ -353,7 +387,7 @@ class objSavePage extends objPage
         if($this->check_page_url_hash($hash))   //found page, page not changed
         {
             _echo('page hash found, not changed');
-            return true;
+            return $resource_id;
         }
         /* save actual PAGE body, get auto-incremented PAGE_ID */
         unset($data);
@@ -363,12 +397,12 @@ class objSavePage extends objPage
 
         /* save hash and auto-incremented PAGE_ID to PAGEINDEX */
         unset($data);
-        $data['PAGEINDEX_HASH']=$hash;
+        $data['PAGEINDEX_PAGE_HASH']=$hash;
         $data['PAGEINDEX_PAGE_ID']=$page_id;
         $table='PAGEINDEX';
         $db->insert_to_table($table,$data);
         $this->pageSavedCount++;
-        return true;
+        return $resource_id;
     }
 
 
@@ -379,9 +413,13 @@ class objSavePage extends objPage
     css
     txt
     text
+
+    return the page resource_id
     */
     public function save ($tag=null)
     {
+        global $g_Link;
+
         $db=$this->db;
 
         if($db===false) return false;
@@ -389,12 +427,12 @@ class objSavePage extends objPage
         if($this->versionid===0)
             $this->versionid=$db->save_version($this->site_id);
         _echo('saving page');
-        $this->save_page($db);
+       $this->parent_page_resource_id = $this->save_page($db);
         _echo('saving image');
 
         $this->save_image($db);
-        _echo('saving link');
-        $this->save_link($db);
+//        _echo('saving link');
+//        $this->save_link($db);
         _echo('saving css');
         $this->save_css($db);
         _echo('saving txt');
@@ -406,31 +444,44 @@ class objSavePage extends objPage
 
         if($tag==true)
         {
+//            _echo('saving link');
+//            $this->save_link($db);
+
             foreach($this->alllinks as $link)
             {
    //         foreach(
+                $link = trim($link);
                 $parsed = parse_url($link);
                 if(!$parsed['scheme']) //need to make full path
                 {
-                    preg_match_all('/\S{0,1}/' , $link, $matches);
-                    if($matches[0] == "/")
-                        $link = $this->urlinfo['url'].$link;
-                    else $link = $this->urlinfo['url']."/".$link;
+//                    preg_match_all('/\S{0,1}/' , $link, $matches);
+//                    if($matches[0] == "/")
+                    if($link[0]=="/")
+                        $full_link = $this->urlinfo['url'].$link;
+                    else $full_link = $this->urlinfo['url']."/".$link;
                 }
                 if($parsed['scheme']!='http' && $parsed['scheme']!='https' && $parsed['scheme'])
                     continue;
 
-                echo 'saving sub page: '.$link;
+                if(in_array($link , $g_Link)) return;
+                $g_Link[] = $link;
+
+                echo 'saving sub page: '.$full_link;
                 echo("<br>");
 
-                    $this->saveSubPage($link);
+                $sub_page_source_id = $this->saveSubPage($full_link);
+                if($sub_page_source_id)
+                {
+                    $this->save_alink($db,$link);
+                }
+
   //              $subPage=new objSavePage("http://www.wenxuecity.com");
  //           $links=$subPage->save(false);
             }
 
         }
 
-        return $this->alllinks;
+        return $this->parent_page_resource_id;
         //return true;
     }
 
@@ -438,7 +489,8 @@ class objSavePage extends objPage
     {
         $subPage=new objSavePage($link);
         $subPage->versionid=$this->versionid;
-        $links=$subPage->save(false);
+        $resource_id = $subPage->save(false);
+        return $resource_id;
     }
     //if url belong to same site, return true, else return false;
     public function is_this_site($url)
@@ -546,9 +598,11 @@ class objSavePage extends objPage
 
     }
 
-    public function get_full_url($url)
+    public function get_full_url ($url)
     {
 
+        $url=trim($url);
+        if($url[0] != "/" && !strstr(strtolower($url), "http://") && !strstr(strtolower($url), "https://")) $url="/".$url;
         $r=parse_url($url);
         if(isset($r['host'])===false)
             $url="http://".$this->urlinfo['host'].$url;
@@ -619,13 +673,13 @@ class objSavePage extends objPage
         $this->db->statement="
         SELECT *
         FROM PAGELINK
-        WHERE PAGELINK_HASH IN ($condition)";
+        WHERE PAGELINK_PAGE_HASH IN ($condition)";
 
         $this->db->execute();
         $ret=array();
         while($r=$this->db->next())
         {
-            $ret[]=$r['PAGELINK_HASH'];
+            $ret[]=$r['PAGELINK_PAGE_HASH'];
         }
         return $ret;
     }

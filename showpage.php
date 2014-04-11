@@ -4,5 +4,12 @@
 require_once("objLoadPage.pclass");
 $siteID = $_GET['sid'];
 $versionID = $_GET['vid'];
-$lp = new objLoadPage(3);
-echo $lp->loadPage(3);
+$pageID = $_GET['pid'];
+if($pageID) {
+    $lp = new objLoadPage(0);
+    echo $lp->getPageBodyFromResourceId($pageID);
+}
+else {
+$lp = new objLoadPage($versionID);
+echo $lp->loadPage(1);
+}

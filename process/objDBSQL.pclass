@@ -133,7 +133,7 @@ class objDBSQL
 */
     public function get_page_id_from_pagehash($hash)
     {
-        $this->statement="SELECT PAGEINDEX_PAGE_ID FROM PAGEINDEX WHERE PAGEINDEX_HASH=\"$hash\"";
+        $this->statement="SELECT PAGEINDEX_PAGE_ID FROM PAGEINDEX WHERE PAGEINDEX_PAGE_HASH=\"$hash\"";
         $this->execute();
         $r=$this->next();
         return $r[0];

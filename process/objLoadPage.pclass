@@ -30,8 +30,12 @@ class objLoadPage// extends objPage
         if($version == false)
             return;
 
+        $this->site_id="";
+        $this->hostname="";
 
         $this->version=$version;
+        $this->page_resource_id=-1;
+        $this->get_site_info();
         $this->Resource=$this->getAllResourcesFromVersion();
         $n=sizeof($this->Resource);
         if($n==0) {_echo('no page found exit');exit;}
@@ -98,8 +102,10 @@ class objLoadPage// extends objPage
 
         //loading css here too.
         if($tag==1)
+        {
+           $new_page=update_page_links_by_full_url($new_page,$this->allLinksFromDB,$this->hostname);
             return $new_page;
-
+        }
         //tag==0
         _echo("Updating main page's URL links by resource id...");
         $new_page=update_page_links_by_resourceid($new_page,$this->allLinksFromDB);
@@ -145,7 +151,7 @@ class objLoadPage// extends objPage
     private function getAllResourcesFromVersion()
     {
         $this->db->statement="
-        SELECT RESOURCE_ID,RESOURCE_TYPE FROM RESOURCE WHERE
+        SELECT RESOURCE_ID,RESOURCE_TYPE,RESOURCE_PARENT_PAGE_ID FROM RESOURCE WHERE
         RESOURCE_VERSION_ID='$this->version'
         ";
         $this->db->execute();
@@ -154,7 +160,9 @@ class objLoadPage// extends objPage
         {
             $id=$r['RESOURCE_ID'];
             $type=$r['RESOURCE_TYPE'];
-            $res[$id]=$type;
+            $parent=$r['RESOURCE_PARENT_PAGE_ID'];
+            $res[$id][]=$type;
+            $res[$id][]=$parent;
         }
         return $res;
     }
@@ -164,7 +172,7 @@ class objLoadPage// extends objPage
         $condition=null;
         foreach($this->Resource as $id=>$type)
         {
-            if($type==$this->table['image'])
+            if($type[0]==$this->table['image'])
                 $condition=$condition."$id,";
         }
         if($condition==null) return null;
@@ -194,7 +202,9 @@ class objLoadPage// extends objPage
         $condition=null;
         foreach($this->Resource as $id=>$type)
         {
-            if($type==$this->table['image'])
+            if($type[1]!= $this->page_resource_id)
+                continue;
+            if($type[0]==$this->table['image'])
                 $condition=$condition."$id,";
         }
         if($condition==null) return null;
@@ -229,7 +239,7 @@ class objLoadPage// extends objPage
 
         foreach($this->Resource as $id=>$type)
         {
-            if($type==$this->table['css'])
+            if($type[0]==$this->table['css'])
             {
                 if($condition===null)
                     $condition=$condition."$id";
@@ -265,7 +275,7 @@ class objLoadPage// extends objPage
         $condition=null;
         foreach($this->Resource as $id=>$type)
         {
-            if($type==$this->table['link'])
+            if($type[0]==$this->table['link'])
                 $condition=$condition."$id,";
         }
         if($condition==null) return null;
@@ -290,21 +300,21 @@ class objLoadPage// extends objPage
 
     private function getPageBodyFromVersion()
     {
-        $resourceID=-1;
         foreach($this->Resource as $id=>$type)
         {
-            if($type==$this->table['page'])
+            if($type[0]==$this->table['page'])
             {
-                $resourceID=$id;
+                $this->page_resource_id=$id;
                 break;
             }
         }
+        if(!$this->page_resource_id) return false;
 
         $this->db->statement="
         SELECT PAGE_BODY FROM PAGE
         LEFT JOIN PAGEINDEX ON PAGEINDEX_PAGE_ID=PAGE_ID
-        LEFT JOIN PAGELINK ON PAGELINK_HASH=PAGEINDEX_HASH
-        WHERE PAGELINK_RESOURCE_ID='$resourceID';
+        LEFT JOIN PAGELINK ON PAGELINK_PAGE_HASH=PAGEINDEX_PAGE_HASH
+        WHERE PAGELINK_RESOURCE_ID='$this->page_resource_id';
         ";
 
         $this->db->execute();
@@ -320,13 +330,14 @@ class objLoadPage// extends objPage
     {
         return true;
     }
-    private function getPageBodyFromResourceId($resourceID)
+
+    public function getPageBodyFromResourceId($resourceID)
     {
         $this->db->statement="
         SELECT PAGE_BODY
         FROM PAGE
-        LEFT JOIN PAGEINDEX ON PAGE_ID=PAGEINDEX_PAGEID
-        LEFT JOIN PAGELINK ON PAGEINDEX_HASH=PAGE_RESOURCE_HASH
+        LEFT JOIN PAGEINDEX ON PAGE_ID=PAGEINDEX_PAGE_ID
+        LEFT JOIN PAGELINK ON PAGEINDEX_HASH=PAGELINK_PAGE_HASH
         WHERE PAGELINK_RESOURCE_ID='$resourceID';
         ";
         $this->db->execute();
@@ -335,4 +346,20 @@ class objLoadPage// extends objPage
 
     }
 
-}
+    private function get_site_info()
+    {
+        $data['SITE_HOST_NAME']=$this->urlinfo['host'];
+        $data['SITE_CREATE_DATE_TIME']='NOW()';
+        $table='SITE';
+
+        $this->db->statement="SELECT SITE_ID,SITE_HOST_NAME FROM SITE LEFT JOIN VERSION ON VERSION_SITE_ID=SITE_ID WHERE VERSION_ID=".$this->version;
+        $this->db->execute();
+        $result=$this->db->next();
+
+        if($result===false) return;
+        $this->site_id=$result['SITE_ID'];
+        $this->hostname=$result['SITE_HOST_NAME'];
+
+        return;
+
+    }}
