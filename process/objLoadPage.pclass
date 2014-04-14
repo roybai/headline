@@ -10,7 +10,7 @@ getPageBodyFromVersion *
 
 class objLoadPage// extends objPage
 {
-    function __construct($version=false)
+    function __construct($version=false,$pageID=0)
     {
         _echo('_started');
 //        parent::__construct($version);
@@ -34,7 +34,7 @@ class objLoadPage// extends objPage
         $this->hostname="";
 
         $this->version=$version;
-        $this->page_resource_id=-1;
+        $this->page_resource_id=$pageID;
         $this->get_site_info();
         $this->Resource=$this->getAllResourcesFromVersion();
         $n=sizeof($this->Resource);
@@ -73,14 +73,16 @@ class objLoadPage// extends objPage
                 $this->nonoigPage=$this->getNewPage();
         */
     }
+
 /*
  * tag:
  * 0. load page with updated link/css/images
  * 1. load page with updated css/images
  * 2. load page with no update.
  */
-    public function loadPage($tag)
+    public function loadPageIntoArray($tag)
     {
+        //orginal page, nothing changed
         if($tag==2) return $this->origPage;
 
         _echo("Updating main page Image links by resource id...");
@@ -100,7 +102,7 @@ class objLoadPage// extends objPage
         _echo($n. " css saved to disk");
 
 
-        //loading css here too.
+        //loading css and image, all local href link are full link
         if($tag==1)
         {
            $new_page=update_page_links_by_full_url($new_page,$this->allLinksFromDB,$this->hostname);
@@ -108,7 +110,7 @@ class objLoadPage// extends objPage
         }
         //tag==0
         _echo("Updating main page's URL links by resource id...");
-        $new_page=update_page_links_by_resourceid($new_page,$this->allLinksFromDB);
+        $new_page=$this->update_page_links_by_resourceid($new_page);
         return $new_page;
     }
 
@@ -154,6 +156,12 @@ class objLoadPage// extends objPage
         SELECT RESOURCE_ID,RESOURCE_TYPE,RESOURCE_PARENT_PAGE_ID FROM RESOURCE WHERE
         RESOURCE_VERSION_ID='$this->version'
         ";
+/*
+        if($this->page_resource_id)
+        {
+            $this->db->statement .= " AND RESOURCE_PARENT_PAGE_ID = {$this->page_resource_id} ";
+        }
+*/
         $this->db->execute();
         $res=array();
         while($r=$this->db->next())
@@ -291,8 +299,8 @@ class objLoadPage// extends objPage
         while($r=$this->db->next())
         {
             $id=$r['ALINK_RESOURCE_ID'];
-            $url=$r['ALINK_URL'];
-            $ret[$id]=$url;
+            $ret[$id][]=$r['ALINK_URL'];
+            $ret[$id][]=$r['ALINK_PAGE_RESOURCE_ID'];
         }
 
         return $ret;
@@ -337,7 +345,7 @@ class objLoadPage// extends objPage
         SELECT PAGE_BODY
         FROM PAGE
         LEFT JOIN PAGEINDEX ON PAGE_ID=PAGEINDEX_PAGE_ID
-        LEFT JOIN PAGELINK ON PAGEINDEX_HASH=PAGELINK_PAGE_HASH
+        LEFT JOIN PAGELINK ON PAGEINDEX_PAGE_HASH=PAGELINK_PAGE_HASH
         WHERE PAGELINK_RESOURCE_ID='$resourceID';
         ";
         $this->db->execute();
@@ -362,4 +370,40 @@ class objLoadPage// extends objPage
 
         return;
 
-    }}
+    }
+    private function update_page_links_by_resourceid($buffer)
+    {
+        $regexp = "<a\s[^>]*href=(\"??)([^\" >]*?)\\1[^>]*>(.*)<\/a>";
+
+        $regexp1= "href=(\"??)([^\" >]*?\\1)";
+
+        preg_match_all("/$regexp/siU", $buffer, $matches);
+        $pieces=preg_split("/$regexp/siU",$buffer);
+
+        $ret=null;
+
+        foreach($matches[0] as $k=>$link)
+        {
+            $l=preg_split("/$regexp1/siU",$link);
+            $found=0;
+            foreach($this->allLinksFromDB as $key=>$value)
+            {
+                if($value[0]===$matches[2][$k])
+                {
+                    $new=$l[0]."href=\"/headline/showpage.php?vid={$this->version}&pid={$value[1]}\"".$l[1];
+                    $ret.=$pieces[$k].$new;
+                    $found=1;
+                    break;
+                }
+            }
+            if($found==0)
+            {
+                $ret.=$pieces[$k].$matches[0][$k];
+                $found=0;
+            }
+        }
+        $ret.=$pieces[sizeof($pieces)-1];
+
+        return $ret;
+    }
+}

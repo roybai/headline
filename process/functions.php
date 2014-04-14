@@ -64,7 +64,7 @@ function get_file_time($full_url,$timeout=600)
         }
         return @file_get_contents($full_url);
     }
-
+/* //moved into objLoadPage.pclass
     function update_page_links_by_resourceid($buffer,$allLinksFromDB)
     {
         $regexp = "<a\s[^>]*href=(\"??)([^\" >]*?)\\1[^>]*>(.*)<\/a>";
@@ -82,9 +82,9 @@ function get_file_time($full_url,$timeout=600)
             $found=0;
             foreach($allLinksFromDB as $key=>$value)
             {
-                if($value===$matches[2][$k])
+                if($value[0]===$matches[2][$k])
                 {
-                    $new=$l[0]."href=\"/x/parser/showPage.php?vid={$key}\"".$l[1];
+                    $new=$l[0]."href=\"/headline/showpage.php?pid={$value[1]}\"".$l[1];
                     $ret.=$pieces[$k].$new;
                     $found=1;
                     break;
@@ -100,7 +100,7 @@ function get_file_time($full_url,$timeout=600)
 
         return $ret;
     }
-
+*/
     function update_page_links_by_full_url($buffer,$allLinksFromDB,$hostname)
     {
         $regexp = "<a\s[^>]*href=(\"??)([^\" >]*?)\\1[^>]*>(.*)<\/a>";
@@ -121,7 +121,7 @@ function get_file_time($full_url,$timeout=600)
                 if($value===$matches[2][$k])
                 {
 
-                    $new=$l[0]."href=\"".get_full_url($value,$hostname)."\"".$l[1];
+                    $new=$l[0]."href=\"".get_full_url($value[0],$hostname)."\"".$l[1];
                     $ret.=$pieces[$k].$new;
                     $found=1;
                     break;
@@ -180,14 +180,20 @@ function update_image_links_by_resourceid($buffer,$allLinksFromDB)
     foreach($matches[0] as $k=>$link)
     {
         $l=preg_split("/$regexp1/siU",$link);
+        $found = false;
         foreach($allLinksFromDB as $key=>$value)
         {
             if($value[0]===$matches[2][$k])
             {
                 $new=$l[0]."src=\"/headline/image/{$key}\"".$l[1];
                 $ret.=$pieces[$k].$new;
+                $found = true;
                 break;
             }
+        }
+        if($found == false)
+        {
+            $ret .= $pieces[$k].$value;
         }
     }
     $ret.=$pieces[sizeof($pieces)-1];

@@ -6,10 +6,15 @@ $siteID = $_GET['sid'];
 $versionID = $_GET['vid'];
 $pageID = $_GET['pid'];
 if($pageID) {
-    $lp = new objLoadPage(0);
-    echo $lp->getPageBodyFromResourceId($pageID);
+    if($versionID)
+        $lp = new objLoadPage($versionID,$pageID);
+    else {
+
+    }
+    $lp->origPage = $lp->getPageBodyFromResourceId($pageID);
+    echo $lp->loadPageIntoArray(0);
 }
 else {
 $lp = new objLoadPage($versionID);
-echo $lp->loadPage(1);
+echo $lp->loadPageIntoArray(0);
 }

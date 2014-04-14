@@ -176,16 +176,19 @@ class objSavePage extends objPage
         if(!$this->csslinks) return;
         foreach($this->csslinks as $link)
         {
+            if(in_array($link , $g_Link)) continue;
+            $g_Link[] = $link;
+
             $full_url=$this->get_full_url($link);
 
-            if(in_array($full_url , $g_Link)) return;
-            $g_Link[] = $full_url;
+//            if(in_array($full_url , $g_Link)) continue;
+//            $g_Link[] = $full_url;
 
             $buffer=@file_get_contents_curl($full_url);
             if(!$buffer)
             {
                 echo "got nothing in css " . $full_url."  <br>";
-                return;
+                continue;
             }
             /* save resource and get resource_id */
             $resource_id=$this->save_resource($db,_CSS_TYPE_RESOURCE);
@@ -344,14 +347,14 @@ class objSavePage extends objPage
         $this->imageSavedCount++;
         return true;
     }
-    private function save_alink($db, $url)
+    private function save_alink($db, $url,$page_source_id)
     {
             _echo('saving link '.$url);
             /* save resource and get resource_id */
             $resource_id=$this->save_resource($db,_LINK_TYPE_RESOURCE);
             $data['ALINK_RESOURCE_ID']=$resource_id;
             $data['ALINK_URL']=$url;
-            $data['ALINK_PAGE_RESOURCE_ID']=$this->parent_page_resource_id;
+            $data['ALINK_PAGE_RESOURCE_ID']=$page_source_id;
             $table='ALINK';
             $db->insert_to_table($table,$data);
     }
@@ -472,7 +475,7 @@ class objSavePage extends objPage
                 $sub_page_source_id = $this->saveSubPage($full_link);
                 if($sub_page_source_id)
                 {
-                    $this->save_alink($db,$link);
+                    $this->save_alink($db,$link,$sub_page_source_id);
                 }
 
   //              $subPage=new objSavePage("http://www.wenxuecity.com");
