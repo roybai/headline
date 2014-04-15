@@ -36,17 +36,41 @@ function get_file_time($full_url,$timeout=600)
         $r=hash("md5",$buffer);
         return substr($r,0,19);
     }
+//  this function is used by curl_setopt ($handle, CURLOPT_WRITEFUNCTION, 'write_function');
+    function write_function($handle, $data) {
+        /*
+        if (strlen($data) > 10240000) {
+            echo "too large<br>";
+            return 10240;
+        }
+        else
+        */
+        {
+            echo "got ".strlen($data)."<br>";
+            return $data;
+        }
+    }
 /*
  * file_get_contents() curl version
  */
-    function file_get_contents_curl ($full_url,$timeout=60)
+    function file_get_contents_curl ($full_url,$timeout=TIME_OUT)
     {
         ini_set("user_agent", "Mozilla/5.0 (Windows NT 6.0) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.36 Safari/536.5");
 
         if(function_exists('curl_init')) {
             $handle = curl_init($full_url);
+            echo "getting ".$full_url."<br>";
             curl_setopt($handle, CURLOPT_RETURNTRANSFER, TRUE);
             curl_setopt($handle, CURLOPT_TIMEOUT,$timeout);
+            curl_setopt($handle, CURLOPT_NOPROGRESS, false);
+            curl_setopt ($handle, CURLOPT_PROGRESSFUNCTION,
+
+                function($DownloadSize, $Downloaded, $UploadSize, $Uploaded){
+                    // If $Downloaded exceeds 1KB, returning non-0 breaks the connection!
+//                    echo $Downloaded.'<br>';
+                    return ($Downloaded > (MAX_SIZE)) ? 1 : 0;
+                });
+
             $parsed=parse_url($full_url);
             if($parsed['scheme']=='https')
             {
@@ -55,7 +79,6 @@ function get_file_time($full_url,$timeout=600)
             $response = curl_exec($handle);
             $httpCode = curl_getinfo($handle, CURLINFO_HTTP_CODE);
             curl_close($handle);
-
             if($httpCode == 200)
                 return $response;
             else
@@ -193,7 +216,7 @@ function update_image_links_by_resourceid($buffer,$allLinksFromDB)
         }
         if($found == false)
         {
-            $ret .= $pieces[$k].$value;
+            $ret .= $pieces[$k].$matches[0][$k];
         }
     }
     $ret.=$pieces[sizeof($pieces)-1];
