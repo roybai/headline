@@ -189,6 +189,19 @@ function update_css_links_by_resourceid($buffer,$links)
     return $buffer;
 }
 
+function getCondition ($hay)
+{
+    $condition=null;
+    foreach($hay as $needle)
+    {
+        if($condition==null)
+            $condition="\"$needle\"";
+        else
+            $condition=$condition.",\"$needle\"";
+    }
+    return "(".$condition.")";
+}
+
 function update_image_links_by_resourceid($buffer,$allLinksFromDB)
 {
     $regexp = '<img\s[^>]*src=([\'\"]??)([^\' >\"]*?)\\1[^>]*>';

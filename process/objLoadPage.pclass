@@ -42,17 +42,24 @@ class objLoadPage// extends objPage
         _echo($n." resources loaded");
 
         _echo("Loading main page...");
-        $this->origPage=$this->getPageBodyFromVersion();
+        if(!$this->page_resource_id)
+            $this->origPage=$this->getPageBodyFromVersion();
+        else
+            $this->origPage=$this->getPageBodyFromResourceId($this->page_resource_id);
 
-        $this->allLinksFromDB=$this->getAllLinksFromVersion();
+        $aLink = parse_links_from_html($this->origPage);
+        $imgLink = parse_image_from_html($this->origPage);
+        $cssLink = parse_csslink_from_html($this->origPage);
+
+        $this->allLinksFromDB=$this->getAllLinksFromVersion($aLink);
         $n=sizeof($this->allLinksFromDB);
         _echo($n. " URL links Loaded");
 
-        $this->allImageLinksFromDB=$this->getAllImageLinksFromVersion();
+        $this->allImageLinksFromDB=$this->getAllImageLinksFromVersion($imgLink);
         $n=sizeof($this->allImageLinksFromDB);
         _echo($n. " Image links Loaded");
 
-        $this->allCssLinksFromDB=$this->getAllCssLinksFromVersion();
+        $this->allCssLinksFromDB=$this->getAllCssLinksFromVersion($cssLink);
         $n=sizeof($this->allCssLinksFromDB);
         _echo($n. " Css links Loaded");
         /*
@@ -174,7 +181,7 @@ class objLoadPage// extends objPage
         }
         return $res;
     }
-
+/*
     private function getAllImageBodyFromVersion()
     {
         $condition=null;
@@ -205,9 +212,53 @@ class objLoadPage// extends objPage
 
         return $ret;
     }
-    private function getAllImageLinksFromVersion()
+*/
+    private function getAllImageLinksFromVersion($imgLink)
     {
         $condition=null;
+        $condition=getCondition($imgLink);
+        if(!$condition) return null;
+
+        $tmp=array();
+        foreach($this->Resource as $key=>$value)
+        {
+            if($value[0]==$this->table['image'])
+                $tmp[]=$key;
+        }
+        $condition1=getCondition($tmp);
+        if(!$condition1) return null;
+
+        /*
+        foreach($imgLink as $l)
+        {
+            $condition = $condition."\"$l\",";
+        }
+        if($condition==null) return null;
+        $condition=$condition.',null';
+        $condition1=null;
+        foreach($this->Resource as $id=>$type)
+        {
+            if($type[1]!= $this->page_resource_id)
+                continue;
+            if($type[0]==$this->table['image'])
+                $condition1=$condition1."$id,";
+        }
+        if($condition1==null) return null;
+        $condition1=$condition1.',null';
+        */
+
+        $this->db->statement="
+        SELECT IMAGELINK_RESOURCE_ID,IMAGELINK_URL,IMAGE_BODY
+        FROM IMAGELINK
+        LEFT JOIN IMAGEINDEX ON IMAGEINDEX_IMAGE_HASH=IMAGELINK_IMAGE_HASH
+        LEFT JOIN IMAGE ON IMAGE_ID=IMAGEINDEX_IMAGE_ID
+        WHERE
+        IMAGELINK_RESOURCE_ID IN $condition1
+        and
+        IMAGELINK_URL IN $condition
+        ";
+
+        /*
         foreach($this->Resource as $id=>$type)
         {
             if($type[1]!= $this->page_resource_id)
@@ -225,6 +276,7 @@ class objLoadPage// extends objPage
         LEFT JOIN IMAGE ON IMAGE_ID=IMAGEINDEX_IMAGE_ID
         WHERE IMAGELINK_RESOURCE_ID IN ($condition)
         ";
+        */
 
         $this->db->execute();
         $ret=array();
@@ -241,27 +293,50 @@ class objLoadPage// extends objPage
         return $ret;
     }
 
-    private function getAllCssLinksFromVersion()
+    private function getAllCssLinksFromVersion($cssLink)
     {
+        /*
         $condition=null;
+        foreach($cssLink as $l)
+        {
+            $condition = $condition."\"$l\",";
+        }
+        if($condition==null) return null;
+        $condition=$condition.',null';
+
+        $condition1=null;
 
         foreach($this->Resource as $id=>$type)
         {
             if($type[0]==$this->table['css'])
             {
-                if($condition===null)
-                    $condition=$condition."$id";
+                if($condition1===null)
+                    $condition1=$condition."$id";
                 else
-                    $condition=$condition.",$id";
+                    $condition1=$condition.",$id";
             }
         }
+        if($condition1==null) return null;
 
-        if($condition==null) return null;
+        */
+        $condition=getCondition($cssLink);
+        if(!$condition) return null;
+        $tmp=array();
+        foreach($this->Resource as $key=>$value)
+        {
+            if($value[0]==$this->table['css'])
+                $tmp[]=$key;
+        }
+        $condition1=getCondition($tmp);
+        if(!$condition1) return null;
 
         $this->db->statement="
         SELECT CSSLINK_RESOURCE_ID,CSS_URL,CSS_BODY
         FROM CSSLINK
-        WHERE CSSLINK_RESOURCE_ID IN ($condition)
+        WHERE
+        CSSLINK_RESOURCE_ID IN $condition1
+        and
+        CSS_URL IN $condition
         ";
 
         $this->db->execute();
@@ -278,26 +353,35 @@ class objLoadPage// extends objPage
         return $ret;
     }
 
-    private function getAllLinksFromVersion()
+    private function getAllLinksFromVersion($aLink)
     {
         $condition=null;
+        $condition = getCondition($aLink);
+        if(!$condition) return null;
+
+        $condition1=null;
+        $tmp=array();
         foreach($this->Resource as $id=>$type)
         {
             if($type[0]==$this->table['link'])
-                $condition=$condition."$id,";
+                $tmp[] = $id;
         }
-        if($condition==null) return null;
+        $condition1 = getCondition($tmp);
+        if($condition1==null) return null;
 
-        $condition=$condition.'null';
         $this->db->statement="
         SELECT * FROM ALINK
-        WHERE ALINK_RESOURCE_ID IN ($condition)
+        WHERE
+        ALINK_URL IN $condition
+         and
+        ALINK_RESOURCE_ID IN $condition1
         ";
 
         $this->db->execute();
         $ret=array();
         while($r=$this->db->next())
         {
+            if(!in_array($r['ALINK_URL'] , $aLink)) continue;
             $id=$r['ALINK_RESOURCE_ID'];
             $ret[$id][]=$r['ALINK_URL'];
             $ret[$id][]=$r['ALINK_PAGE_RESOURCE_ID'];
