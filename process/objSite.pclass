@@ -1,0 +1,33 @@
+<?php
+require_once("variables.php");
+require_once("functions.php");
+require_once("objDBSQL.pclass");
+
+/*
+ *
+ */
+class objSite
+{
+    public function __construct()
+    {
+        $this->db=new objDBSQL();
+
+    }
+
+    public function getAllHost()
+    {
+        $ret=array();
+        $this->db->statement="SELECT * FROM SITE";
+        $this->db->execute();
+        $result=$this->db->next();
+        while($result) {
+            $ret[]=$result['SITE_HOST_NAME'];
+            $result=$this->db->next();
+        }
+        return $ret;
+
+
+    }
+
+}
+

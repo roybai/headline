@@ -172,10 +172,7 @@ function saveMyFile($filename,$buffer)
 }
 function _echo($str)
 {
-    return;
-    ob_start();
     echo date("i:s: ").$str."<br>";
-    ob_flush();
 }
 function update_css_links_by_resourceid($buffer,$links)
 {

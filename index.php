@@ -4,7 +4,6 @@
 require_once("objDBSQL.pclass");
 require_once("objLoadPage.pclass");
 require_once("functions.php");
-
 $clear_table_link='<a href="cleartable.php">clear table</a>';
 $save_page_link='<a href="savepage.php" target="_blank">save page</a>';
 echo $clear_table_link."<br>";

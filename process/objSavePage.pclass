@@ -293,6 +293,7 @@ class objSavePage extends objPage
                 return false;
             }
             $image_hash=get_hash($image_buffer);
+            echo 'got image '.$full_url."<br>";
         }
         else
         {
@@ -352,11 +353,13 @@ class objSavePage extends objPage
             _echo('saving link '.$url);
             /* save resource and get resource_id */
             $resource_id=$this->save_resource($db,_LINK_TYPE_RESOURCE);
+            _echo('saving link 1 '.$url);
             $data['ALINK_RESOURCE_ID']=$resource_id;
             $data['ALINK_URL']=$url;
             $data['ALINK_PAGE_RESOURCE_ID']=$page_source_id;
             $table='ALINK';
             $db->insert_to_table($table,$data);
+            _echo('saving link 2 '.$url);
     }
 
     private function save_link(objDBSQL $db)
@@ -422,7 +425,7 @@ class objSavePage extends objPage
     public function save ($tag=null)
     {
         global $g_Link;
-
+        static $sub_page_source_id=0;
         $db=$this->db;
 
         if($db===false) return false;
@@ -431,16 +434,16 @@ class objSavePage extends objPage
             $this->versionid=$db->save_version($this->site_id);
         _echo('saving page');
        $this->parent_page_resource_id = $this->save_page($db);
-        _echo('saving image');
+//        _echo('saving image');
 
         $this->save_image($db);
 //        _echo('saving link');
 //        $this->save_link($db);
-        _echo('saving css');
+//        _echo('saving css');
         $this->save_css($db);
-        _echo('saving txt');
+//        _echo('saving txt');
         $this->save_txt($db);
-        _echo('saving text');
+//        _echo('saving text');
         $this->save_text($db);
         _echo ("Newly saved image: ".$this->imageSavedCount);
         _echo ("<br>Newly saved page: ".$this->pageSavedCount);
@@ -449,10 +452,13 @@ class objSavePage extends objPage
         {
 //            _echo('saving link');
 //            $this->save_link($db);
-
+$total=sizeof($this->alllinks);
+            $i=0;
             foreach($this->alllinks as $link)
             {
+                $i++;
    //         foreach(
+                _echo('doing '.$link.'<br>');
                 $link = trim($link);
                 $parsed = parse_url($link);
                 if(!$parsed['scheme']) //need to make full path
@@ -466,13 +472,17 @@ class objSavePage extends objPage
                 if($parsed['scheme']!='http' && $parsed['scheme']!='https' && $parsed['scheme'])
                     continue;
 
-                if(in_array($link , $g_Link)) return;
+                _echo('doing '.$link.' 1<br>');
+                if(in_array($link , $g_Link)) continue;
+                _echo('doing '.$link.' 2<br>');
                 $g_Link[] = $link;
 
-                echo 'saving sub page: '.$full_link;
+                echo "saving sub page: ({$total}-{$i}:".$full_link;
                 echo("<br>");
 
                 $sub_page_source_id = $this->saveSubPage($full_link);
+                //$sub_page_source_id++;
+//                echo 'saving '.$full_link.'id:'.$sub_page_source_id.' <br>';
                 if($sub_page_source_id)
                 {
                     $this->save_alink($db,$link,$sub_page_source_id);
@@ -481,6 +491,7 @@ class objSavePage extends objPage
   //              $subPage=new objSavePage("http://www.wenxuecity.com");
  //           $links=$subPage->save(false);
             }
+                        echo "saving sub page done<br>";
 
         }
 
