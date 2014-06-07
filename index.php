@@ -9,14 +9,13 @@ $save_page_link='<a href="savepage.php" target="_blank">save page</a>';
 echo $clear_table_link."<br>";
 echo $save_page_link."<br>";
 $versions=listAllVersion();
-{
     foreach($versions as $key=>$v)
     {
         $link="<a href='showpage.php?sid=".$v[2]."&vid=".$v[3]."' target='blank'> ".$v[1]." </a>";
         echo($v[0].'.....'.$link.'<br>');
 
     }
-}
+
 function listAllVersion()
 {
     $db=new objDBSQL();

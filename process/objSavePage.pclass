@@ -389,15 +389,18 @@ class objSavePage extends objPage
         $table='PAGELINK';
         $db->insert_to_table($table,$data);
 
-//        if($db->get_page_id_from_pagehash($hash))   //found page
         if($this->check_page_url_hash($hash))   //found page, page not changed
         {
             _echo('page hash found, not changed');
             return $resource_id;
         }
+
         /* save actual PAGE body, get auto-incremented PAGE_ID */
         unset($data);
-        $data['PAGE_BODY']=$this->pagebuffer;
+        $data['PAGE_BODY']=gzcompress($this->pagebuffer);
+        $oirg_size=strlen($this->pagebuffer);
+        $new_size=strlen($data['PAGE_BODY']);
+
         $table='PAGE';
         $page_id=$db->insert_to_table($table,$data);
 

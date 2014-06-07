@@ -411,7 +411,9 @@ class objLoadPage// extends objPage
 
         $this->db->execute();
         $page=$this->db->next();
-        return $page[0];
+        _echo ("gzsize ".strlen($page[0]));
+        _echo ("orig size ".strlen(gzuncompress($page[0])));
+        return gzuncompress($page[0]);
     }
 
     private function getResourceID(objDBSQL $db,$version)
@@ -434,7 +436,9 @@ class objLoadPage// extends objPage
         ";
         $this->db->execute();
         $page=$this->db->next();
-        return $page[0];
+        _echo ("gzsize ".strlen($page[0]));
+        _echo ("orig size ".strlen(gzuncompress($page[0])));
+        return gzuncompress($page[0]);
 
     }
 

@@ -1,0 +1,97 @@
+<?php
+/**
+ **	baseObjSimple.pclass
+ ** 	base object class file
+ **
+ **
+ **	Modified By:
+ **	Modified On:
+ **	Modifications:
+ **
+ **	This file...
+ **
+ **	baseObjSimple contains the following properties/methods:
+ **		properties:
+ **			propVal
+ **			propList
+ **
+ **		methods:
+ **			isValid
+ **			setValid
+ **			setInvalid
+ **			setProp
+ **			appendProp
+ **			getProp
+ **			isProp
+ **/
+
+class baseObjSimple {
+
+	var $objValid;
+	var $propVal = array();
+	var $propList = array();
+
+
+	// constructor method does nothing
+	function baseObjSimple () {}
+
+
+	// isValid return true or false based on whether the object is valid.
+	function isValid () { return $this->objValid; }
+
+
+	// setValid makes the object valid
+	function setValid () { return ($this->objValid = true); }
+
+
+	// setInvalid makes the object invalid
+	function setInvalid () { return ($this->objValid = false); }
+
+
+	// set a property. if the property doesn't yet exist, add it to the prop list
+	function setProp ( $pName, $pValue ) {
+		// Check to see if this exists in the propList. If not, add it.
+		if ( !$this->isProp($pName) ) { $this->propList[] = $pName; }
+
+		$this->propVal[$pName] = $pValue;
+
+		// Return success
+		return true;
+	}
+
+
+	// append a property. if the property doesn't yet exist, then treat this as a setProp
+	function appendProp ( $pName, $pValue ) {
+		// Check to see if this exists in the propList. If not, create the property
+		if ( !$this->isProp($pName) ) {
+			$this->setProp($pName,$pValue);
+		// Otherwise, append the value to the property
+		} else {
+			$this->propVal[$pName] .= $pValue;
+		}
+
+		// Return success
+		return true;
+	}
+
+
+	// get a property value. if the property doesn't exist, return false
+	function getProp ( $pName ) {
+		// Check to see if this exists in the propList. If not, return an empty string
+		if ( $this->isProp($pName) ) {
+			return $this->propVal[$pName];
+		} else {
+			return '';
+		}
+	}
+
+
+	// check to see if the property exists in the object
+	function isProp ( $pName ) {
+		// Check to see if this exists in the propList
+		return in_array($pName,$this->propList);
+	}
+
+} // end class baseObjSimple
+
+?>

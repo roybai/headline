@@ -13,7 +13,7 @@ $sites = new objSite();
 $siteList=$sites->getAllHost();
 foreach($siteList as $site)
 {
-    if($site != 'www.cnn.com') continue;
+    //if($site != 'www.cnn.com') continue;
 $web=new objSavePage("http://".$site);
 $links=$web->save(true);
 }

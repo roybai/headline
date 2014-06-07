@@ -137,11 +137,17 @@ function get_file_time($full_url,$timeout=600)
 
         foreach($matches[0] as $k=>$link)
         {
+                $l=preg_split("/$regexp1/siU",$link);
+
+                $new=$l[0]."href=\"".get_full_url($matches[2][$k],$hostname)."\"".$l[1];
+
+                    $ret.=$pieces[$k].$new;
+        /*
             $l=preg_split("/$regexp1/siU",$link);
             $found=0;
             foreach($allLinksFromDB as $key=>$value)
             {
-                if($value===$matches[2][$k])
+                if($value[0]===$matches[2][$k])
                 {
 
                     $new=$l[0]."href=\"".get_full_url($value[0],$hostname)."\"".$l[1];
@@ -155,6 +161,7 @@ function get_file_time($full_url,$timeout=600)
                 $ret.=$pieces[$k].$matches[0][$k];
                 $found=0;
             }
+*/
         }
         $ret.=$pieces[sizeof($pieces)-1];
 
@@ -172,8 +179,13 @@ function saveMyFile($filename,$buffer)
 }
 function _echo($str)
 {
-    echo date("i:s: ").$str."<br>";
+    return;
+    if($_SERVER['HTTP_USER_AGENT'])
+        echo date("i:s: ").$str."<br>";
+    else
+        echo date("i:s: ").$str."\n";
 }
+
 function update_css_links_by_resourceid($buffer,$links)
 {
     $pieces=array();

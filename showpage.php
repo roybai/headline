@@ -19,7 +19,7 @@ if($pageID) {
 if($pageID)
 {
         $lp = new objLoadPage($versionID,$pageID);
-        echo $lp->loadPageIntoArray(0);
+        echo $lp->loadPageIntoArray(1);
 }
 else {
 $lp = new objLoadPage($versionID);
