@@ -9,7 +9,7 @@ require_once("objPage.pclass");
  */
 class objSavePage extends objPage
 {
-    public function __construct($fullURL,$userAgent=null)
+    public function __construct($fullURL,$versionID, $userAgent=null)
     {
         $this->db=new objDBSQL();
 
@@ -46,11 +46,16 @@ class objSavePage extends objPage
         $this->currentURL=null;
         $this->currentPathLevel=0;
         $this->site_id=0;
+        $this->totalCaptureTimes=0;
+        $this->totalResources = 0;
+
         $this->site_allow_dir=array();
         $this->get_site_info();
 
-        $this->versionid=0;
-
+        if($versionID)
+            $this->versionid = $versionID;
+        else
+            $this->versionid=$this->db->save_version($this->site_id);
 
         $this->imageToBeSaved=0;
         $this->imageSavedCount=0;
@@ -59,6 +64,7 @@ class objSavePage extends objPage
         $this->pageSavedCount=0;
         $this->pageExistCount=0;
         $this->cssToBeSaved=0;
+        $this->cssSavedCount=0;
         $this->parent_page_resource_id=0;
 
         _echo('retrieving main page...'.$this->urlinfo['url']);
@@ -68,10 +74,11 @@ class objSavePage extends objPage
 
         _echo('parsing links...');
         $this->alllinks=parse_links_from_html($this->pagebuffer);
+
+        $this->alllinks=$this->filter_local_links();
         $this->pageToBeSaved=sizeof($this->alllinks);
        _echo(sizeof($this->alllinks).' links');
 
-        $this->alllinks=$this->filter_local_links();
         _echo('retrieving robots.txt...');
         $this->robotsTxt=$this->get_robotsTxt();
         _echo('robot rules: '.sizeof($this->robotsTxt));
@@ -91,6 +98,7 @@ class objSavePage extends objPage
         $this->imageToBeSaved=sizeof($this->imagelinks);
 //        _echo(sizeof($this->imagelinks).' links');
 
+        $this->totalResources = $this->pageToBeSaved + $this->cssToBeSaved + $this->imageToBeSaved;
         _echo('parsing title links...');
         $this->txtTitle=parse_txtTitle_from_html($this->pagebuffer);
 
@@ -136,7 +144,7 @@ class objSavePage extends objPage
         $data['SITE_CREATE_DATE_TIME']='NOW()';
         $table='SITE';
 
-        $this->db->statement="SELECT SITE_ID FROM SITE WHERE SITE_HOST_NAME=\"{$this->urlinfo['host']}\"";
+        $this->db->statement="SELECT SITE_ID, SITE_FIRST_CAPTURE_TIME, SITE_TOTAL_CAPTURE_TIMES FROM SITE WHERE SITE_HOST_NAME=\"{$this->urlinfo['host']}\"";
         $this->db->execute();
         $result=$this->db->next();
 
@@ -149,6 +157,14 @@ class objSavePage extends objPage
         else
         {
             $this->site_id=$result['SITE_ID'];
+            $this->totalCaptureTimes=$result['SITE_TOTAL_CAPTURE_TIMES'];
+
+            if(!$result['SITE_FIRST_CAPTURE_TIME']) {
+                $this->db->statement="UPDATE SITE SET SITE_FIRST_CAPTURE_TIME=NOW() WHERE SITE_ID=\"{$this->site_id}\"";
+                $this->db->execute();
+
+            }
+
             if($result['SITE_ALLOW_DIR']!=null)
             {
                 $this->site_allow_dir=explode(",",$result['SITE_ALLOW_DIR']);
@@ -197,6 +213,7 @@ class objSavePage extends objPage
             $data['CSS_BODY']=$buffer;
             $table='CSSLINK';
             $db->insert_to_table($table,$data);
+            $this->cssSavedCount++;
         }
     }
 
@@ -433,8 +450,6 @@ class objSavePage extends objPage
 
         if($db===false) return false;
 
-        if($this->versionid===0)
-            $this->versionid=$db->save_version($this->site_id);
         _echo('saving page');
        $this->parent_page_resource_id = $this->save_page($db);
 //        _echo('saving image');
@@ -504,9 +519,14 @@ $total=sizeof($this->alllinks);
 
     private function saveSubPage($link)
     {
-        $subPage=new objSavePage($link);
+        $subPage=new objSavePage($link,$this->versionid);
         $subPage->versionid=$this->versionid;
         $resource_id = $subPage->save(false);
+        $this->totalResources += $subPage->totalResources;
+        $this->pageSavedCount += $subPage->pageSavedCount;
+        $this->imageSavedCount += $subPage->imageSavedCount;
+        $this->cssSavedCount += $subPage->cssSavedCount;
+
         return $resource_id;
     }
     //if url belong to same site, return true, else return false;

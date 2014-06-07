@@ -164,9 +164,15 @@ class objDBSQL
 
     public function save_version($site_id)
     {
-        $this->statement="insert into `VERSION` (VERSION_SITE_ID,VERSION_DATE_TIME) values ('$site_id',now())";
+        $this->statement="insert into `VERSION` (VERSION_SITE_ID,VERSION_START_TIME) values ('$site_id',now())";
         if(mysql_query($this->statement)===false) return false;
         return $this->last_insert_id();
+    }
+    public function update_version(objSavePage $web)
+    {
+        $this->statement = "update VERSION SET VERSION_END_TIME=NOW(),VERSION_ALL_RES=".$web->totalResources.",VERSION_NEW_RES=".$web->pageSavedCount+$web->imageSavedCount+$web->cssSavedCount." WHERE VERSION_ID=".$web->versionid;
+        if(mysql_query($this->statement)===false) return false;
+        return true;
     }
     public function get_version_by_time($start_time,$end_time,$start_row=null,$limit=null,$site_id=null)
     {

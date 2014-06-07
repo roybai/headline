@@ -2,11 +2,11 @@
 require_once("variables.php");
 require_once("functions.php");
 require_once("objDBSQL.pclass");
-
+require_once("objSavePage.pclass");
 /*
  *
  */
-class objSite
+class objLog
 {
     public function __construct()
     {
@@ -14,6 +14,12 @@ class objSite
 
     }
 
+    public function init_log($siteID) {
+
+    }
+    public function end_log($siteID, objSavePage $web) {
+
+    }
     public function getAllHost()
     {
         $ret=array();
