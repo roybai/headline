@@ -170,10 +170,22 @@ class objDBSQL
     }
     public function update_version(objSavePage $web)
     {
-        $this->statement = "update VERSION SET VERSION_END_TIME=NOW(),VERSION_ALL_RES=".$web->totalResources.",VERSION_NEW_RES=".$web->pageSavedCount+$web->imageSavedCount+$web->cssSavedCount." WHERE VERSION_ID=".$web->versionid;
+        $new_res = $web->pageSavedCount+$web->imageSavedCount+$web->cssSavedCount;
+        $this->statement = "update VERSION SET
+        VERSION_END_TIME=NOW(),
+        VERSION_ALL_RES=".$web->totalResources.",
+        VERSION_NEW_RES=".$new_res.",
+        VERSION_STATUS=\"".$web->status."\"
+        WHERE VERSION_ID=".$web->versionid;
         if(mysql_query($this->statement)===false) return false;
         return true;
     }
+    public function update_site(objSavePage $web) {
+        $this->statement = 'update SITE SET SITE_LAST_UPDATE_TIME=NOW(), SITE_TOTAL_CAPTURE_TIMES=SITE_TOTAL_CAPTURE_TIMES+1,SITE_STATUS="'.$web->status.'"
+            WHERE SITE_ID='.$web->site_id;
+        if(mysql_query($this->statement)===false) return false;
+    }
+
     public function get_version_by_time($start_time,$end_time,$start_row=null,$limit=null,$site_id=null)
     {
         $condition_site=null;

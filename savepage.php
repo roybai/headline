@@ -13,12 +13,14 @@ $sites = new objSite();
 $siteList=$sites->getAllHost();
 foreach($siteList as $site)
 {
-    if($site[1] != 'www.mitbbs.com') continue;
-    $web=new objSavePage("https://".$site[1], 0);
-    $links=$web->save(true);
+//    if($site[1] != 'www.mitbbs.com') continue;
+    $web=new objSavePage("http://".$site[1], 0);
+    if($web->status=="OK")
+        $links=$web->save(true);
 
     $db = new objDBSQL();
     $db->update_version($web);
+    $db->update_site($web);
 }
 
 function test()

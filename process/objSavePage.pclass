@@ -15,9 +15,10 @@ class objSavePage extends objPage
 
 //        parent::__construct();
         $parsed = parse_url($fullURL);
+        $this->status="OK";
         if($parsed['scheme']===null)
         {
-            $this->error='wrong null';
+            $this->status='wrong null';
             return false;   //must be full url starting with http or https
         }
 
@@ -69,7 +70,10 @@ class objSavePage extends objPage
 
         _echo('retrieving main page...'.$this->urlinfo['url']);
         $this->pagebuffer=file_get_contents_curl($this->urlinfo['url']);
-        if($this->pagebuffer==null) return false;
+        if($this->pagebuffer==null) {
+            $this->status="failed getting files";
+            return false;
+        };
         $this->pageBufferSize=strlen($this->pagebuffer);
 
         _echo('parsing links...');

@@ -21,7 +21,7 @@ function listAllVersion()
     $db=new objDBSQL();
 
     $db->statement="
-    SELECT SITE_HOST_NAME,VERSION_DATE_TIME,VERSION_ID,SITE_ID
+    SELECT SITE_HOST_NAME,VERSION_START_TIME,VERSION_ID,SITE_ID
     FROM SITE
     LEFT JOIN VERSION ON VERSION_SITE_ID=SITE_ID
 
@@ -31,7 +31,7 @@ function listAllVersion()
     while($r=$db->next())
     {
         $ret[$r['VERSION_ID']][]=$r['SITE_HOST_NAME'];
-        $ret[$r['VERSION_ID']][]=$r['VERSION_DATE_TIME'];
+        $ret[$r['VERSION_ID']][]=$r['VERSION_START_TIME'];
         $ret[$r['VERSION_ID']][]=$r['SITE_ID'];
         $ret[$r['VERSION_ID']][]=$r['VERSION_ID'];
     }

@@ -1,5 +1,5 @@
 <?php
-require_once("variables.php");
+require_once("process/variables.php");
 
 /*
 function get_file_time($full_url,$timeout=600)
@@ -179,7 +179,6 @@ function saveMyFile($filename,$buffer)
 }
 function _echo($str)
 {
-    return;
     if($_SERVER['HTTP_USER_AGENT'])
         echo date("i:s: ").$str."<br>";
     else
