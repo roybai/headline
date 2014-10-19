@@ -61,7 +61,7 @@ for($i=0;$i<_LEN;$i++) {
     $time=str_replace(':','-',$time);
     $year = substr($trunk,20,4);
     */
-    if($start_position ==0)
+    if($start_position+$i ==0)
     {
         saveFile($_GET['username'],$head.$allTxt);
     }

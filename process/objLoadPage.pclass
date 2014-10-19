@@ -46,7 +46,7 @@ class objLoadPage// extends objPage
             $this->origPage=$this->getPageBodyFromVersion();
         else
             $this->origPage=$this->getPageBodyFromResourceId($this->page_resource_id);
-
+//echo $this->origPage;
         $aLink = parse_links_from_html($this->origPage);
         $imgLink = parse_image_from_html($this->origPage);
         $cssLink = parse_csslink_from_html($this->origPage);
@@ -112,7 +112,7 @@ class objLoadPage// extends objPage
         //loading css and image, all local href link are full link
         if($tag==1)
         {
-           $new_page=update_page_links_by_full_url($new_page,$this->allLinksFromDB,$this->hostname);
+           //$new_page=update_page_links_by_full_url($new_page,$this->allLinksFromDB,$this->hostname);
             return $new_page;
         }
         //tag==0

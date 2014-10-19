@@ -76,20 +76,30 @@ class objSavePage extends objPage
         };
         $this->pageBufferSize=strlen($this->pagebuffer);
 
-        _echo('parsing links...');
+        //_echo('parsing links...');
         $this->alllinks=parse_links_from_html($this->pagebuffer);
 
+
         $this->alllinks=$this->filter_local_links();
+        if($versionID==0)
+        {
+            $i=0;
+            foreach($this->alllinks as $l) {
+                $i++;
+                echo ($i.'----'.$l.'<br/>');
+            }
+
+        }
         $this->pageToBeSaved=sizeof($this->alllinks);
        _echo(sizeof($this->alllinks).' links');
 
-        _echo('retrieving robots.txt...');
+        //_echo('retrieving robots.txt...');
         $this->robotsTxt=$this->get_robotsTxt();
-        _echo('robot rules: '.sizeof($this->robotsTxt));
+        //_echo('robot rules: '.sizeof($this->robotsTxt));
 
-        _echo('parsing allow links...');
+        //_echo('parsing allow links...');
         $this->allowlinks=$this->parse_allow_link_from_alllink();
-        _echo(sizeof($this->allowlinks).' links');
+        //_echo(sizeof($this->allowlinks).' links');
 
         $this->disallowlinks=$this->parse_disallow_link_from_alllink();
         _echo(sizeof($this->disallowlinks).' links');
@@ -97,26 +107,26 @@ class objSavePage extends objPage
         $this->cssToBeSaved=sizeof($this->csslinks);
 //        _echo(sizeof($this->csslinks).' links');
 
-        _echo('parsing image links...');
+        //_echo('parsing image links...');
         $this->imagelinks=parse_image_from_html($this->pagebuffer);
         $this->imageToBeSaved=sizeof($this->imagelinks);
 //        _echo(sizeof($this->imagelinks).' links');
 
         $this->totalResources = $this->pageToBeSaved + $this->cssToBeSaved + $this->imageToBeSaved;
-        _echo('parsing title links...');
+        //_echo('parsing title links...');
         $this->txtTitle=parse_txtTitle_from_html($this->pagebuffer);
 
-        _echo('parsing txt...');
+        //_echo('parsing txt...');
         $this->txtLink=parse_txtLink_from_html($this->pagebuffer);
 
-        _echo('parsing text body...');
+        //_echo('parsing text body...');
         $this->txtBody=parse_txtBody_from_html($this->pagebuffer);
 
-        _echo('loading image url hash...');
+        //_echo('loading image url hash...');
         $this->ImageURLHashTable = $this->LoadImageURLHash();
         _echo(sizeof($this->ImageURLHashTable).' ImageURLHashTable');
 
-        _echo('loading image body hash...');
+        //_echo('loading image body hash...');
         $this->ImageBodyHashTable = $this->LoadImageBodyHash();
         _echo(sizeof($this->ImageBodyHashTable).' ImageBodyHashTable');
 
@@ -314,11 +324,11 @@ class objSavePage extends objPage
                 return false;
             }
             $image_hash=get_hash($image_buffer);
-            echo 'got image '.$full_url."<br>";
+            //echo 'got image '.$full_url."<br>";
         }
         else
         {
-            _echo('found image url '.$link);
+            //_echo('found image url '.$link);
             $has_url=true;
         }
         /* save resource and get resource_id */
@@ -374,13 +384,11 @@ class objSavePage extends objPage
             _echo('saving link '.$url);
             /* save resource and get resource_id */
             $resource_id=$this->save_resource($db,_LINK_TYPE_RESOURCE);
-            _echo('saving link 1 '.$url);
             $data['ALINK_RESOURCE_ID']=$resource_id;
             $data['ALINK_URL']=$url;
             $data['ALINK_PAGE_RESOURCE_ID']=$page_source_id;
             $table='ALINK';
             $db->insert_to_table($table,$data);
-            _echo('saving link 2 '.$url);
     }
 
     private function save_link(objDBSQL $db)
@@ -404,7 +412,8 @@ class objSavePage extends objPage
 
         /* save resource id and hash(page_id) to PAGELINK) */
         unset($data);
-        $hash=get_hash($this->pagebuffer);
+        //$hash=get_hash($this->pagebuffer);
+        $hash = get_hash($this->urlinfo['url']);
         $data['PAGELINK_RESOURCE_ID']=$resource_id;
         $data['PAGELINK_PAGE_HASH']=$hash;
         $table='PAGELINK';
@@ -412,8 +421,8 @@ class objSavePage extends objPage
 
         if($this->check_page_url_hash($hash))   //found page, page not changed
         {
-            _echo('page hash found, not changed');
-            return $resource_id;
+            _echo('page hash found');
+//            return $resource_id;
         }
 
         /* save actual PAGE body, get auto-incremented PAGE_ID */
@@ -480,6 +489,10 @@ $total=sizeof($this->alllinks);
             {
                 $i++;
    //         foreach(
+                if(strstr($link,"article_t")) {
+                    echo "found one";
+                echo "222";
+                }
                 _echo('doing '.$link.'<br>');
                 $link = trim($link);
                 $parsed = parse_url($link);

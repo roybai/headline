@@ -1,6 +1,5 @@
 <?php
 require_once("variables.php");
-require_once("functions.php");
 require_once("objDBSQL.pclass");
 
 /*
@@ -11,7 +10,12 @@ class objSite
     public function __construct()
     {
         $this->db=new objDBSQL();
-
+        $this->id="";
+        $this->host="";
+        $this->lang="en";
+        $this->loc="us";
+        $this->depth="1";
+        $this->cat="news";
     }
 
     public function getAllHost()
@@ -25,9 +29,35 @@ class objSite
             $result=$this->db->next();
         }
         return $ret;
-
-
     }
 
+    public function addSite()
+    {
+        $this->db->statement="INSERT INTO SITE
+        (
+            SITE_HOST_NAME,
+            SITE_LANGUAGE,
+            SITE_LOCATION,
+            SITE_DEPTH,
+            SITE_CATEGORY
+        )
+        VALUES(
+            '$this->host',
+            '$this->lang',
+            '$this->loc',
+            '$this->depth',
+            '$this->cat'
+        )";
+        $this->db->execute();
+    }
+    public function deleteSite()
+    {
+        $this->db->statement="DELETE FROM SITE WHERE SITE_ID=".$this->id;
+        $this->db->execute();
+    }
+    public function changeStatus($status)
+    {
+
+    }
 }
 

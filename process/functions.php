@@ -1,5 +1,5 @@
 <?php
-require_once("process/variables.php");
+require_once("variables.php");
 
 /*
 function get_file_time($full_url,$timeout=600)
@@ -59,7 +59,7 @@ function get_file_time($full_url,$timeout=600)
 
         if(function_exists('curl_init')) {
             $handle = curl_init($full_url);
-            echo "getting ".$full_url."<br>";
+            //echo "getting ".$full_url."<br>";
             curl_setopt($handle, CURLOPT_RETURNTRANSFER, TRUE);
             curl_setopt($handle, CURLOPT_TIMEOUT,$timeout);
             curl_setopt($handle, CURLOPT_NOPROGRESS, false);
@@ -124,49 +124,7 @@ function get_file_time($full_url,$timeout=600)
         return $ret;
     }
 */
-    function update_page_links_by_full_url($buffer,$allLinksFromDB,$hostname)
-    {
-        $regexp = "<a\s[^>]*href=(\"??)([^\" >]*?)\\1[^>]*>(.*)<\/a>";
 
-        $regexp1= "href=(\"??)([^\" >]*?\\1)";
-
-        preg_match_all("/$regexp/siU", $buffer, $matches);
-        $pieces=preg_split("/$regexp/siU",$buffer);
-
-        $ret=null;
-
-        foreach($matches[0] as $k=>$link)
-        {
-                $l=preg_split("/$regexp1/siU",$link);
-
-                $new=$l[0]."href=\"".get_full_url($matches[2][$k],$hostname)."\"".$l[1];
-
-                    $ret.=$pieces[$k].$new;
-        /*
-            $l=preg_split("/$regexp1/siU",$link);
-            $found=0;
-            foreach($allLinksFromDB as $key=>$value)
-            {
-                if($value[0]===$matches[2][$k])
-                {
-
-                    $new=$l[0]."href=\"".get_full_url($value[0],$hostname)."\"".$l[1];
-                    $ret.=$pieces[$k].$new;
-                    $found=1;
-                    break;
-                }
-            }
-            if($found==0)
-            {
-                $ret.=$pieces[$k].$matches[0][$k];
-                $found=0;
-            }
-*/
-        }
-        $ret.=$pieces[sizeof($pieces)-1];
-
-        return $ret;
-    }
 
 function saveMyFile($filename,$buffer)
 {
@@ -179,8 +137,13 @@ function saveMyFile($filename,$buffer)
 }
 function _echo($str)
 {
+    return;
     if($_SERVER['HTTP_USER_AGENT'])
-        echo date("i:s: ").$str."<br>";
+    {
+        echo date("d:i:s: ").$str."<br>";
+        ob_flush();
+        flush();
+    }
     else
         echo date("i:s: ").$str."\n";
 }

@@ -13,7 +13,7 @@ $sites = new objSite();
 $siteList=$sites->getAllHost();
 foreach($siteList as $site)
 {
-//    if($site[1] != 'www.mitbbs.com') continue;
+    if($site[1] != 'www.mitbbs.com') continue;
     $web=new objSavePage("http://".$site[1], 0);
     if($web->status=="OK")
         $links=$web->save(true);
@@ -21,9 +21,4 @@ foreach($siteList as $site)
     $db = new objDBSQL();
     $db->update_version($web);
     $db->update_site($web);
-}
-
-function test()
-{
-    echo file_get_contents_curl('www.mitbbs.com/virtual_shape/images/vshape_merge_1.png');
 }
